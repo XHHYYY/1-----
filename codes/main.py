@@ -1,14 +1,6 @@
 from threading import Thread, Semaphore
 from time import time, sleep
 
-MAX_DELAY = 10
-TIME_UNIT = 0.1
-
-# global Source
-# global customer_list
-# global waiting_list
-# global txt2file
-
 class server(Thread):
     
     def __init__(self, max_delay, server_num) -> None:
@@ -19,14 +11,14 @@ class server(Thread):
     def run(self):
         global txt2file
         begin_time = time()
-        while(time() - begin_time < self.max_delay):
-            Source.acquire(timeout=MAX_DELAY)
+        while(time() - begin_time < self.max_delay / 2):
+            Source.acquire(timeout=max_delay)
             if waiting_list != []:
                 customer = waiting_list[0]
                 del(waiting_list[0])
                 
                 assert isinstance(customer, Customer)
-                customer.service_begin_time = int((time() - begin_time) / TIME_UNIT)
+                customer.service_begin_time = int((time() - begin_time) / time_unit)
                 customer.server_num = self.server_num
                 customer.leave_time = customer.service_begin_time + customer.required_time
                 
@@ -36,7 +28,7 @@ class server(Thread):
                 txt2file += txt2cmd + '\n'
                 print(txt2cmd)
                 
-                sleep(customer.required_time * TIME_UNIT)
+                sleep(customer.required_time * time_unit)
         return
 
 class Customer():
@@ -64,20 +56,29 @@ def read_sequence() -> list:
 
 def list_ctrl():
     begin_time = time()
-    while(time() - begin_time < MAX_DELAY):
-        sleep(TIME_UNIT / 2)
+    while(time() - begin_time < max_delay):
+        sleep(time_unit / 2)
         if customer_list != []:
-            if int((time() - begin_time) / TIME_UNIT) == customer_list[0].arrive_time:
-                waiting_list.append(customer_list[0])
-                del(customer_list[0])
-                Source.release()
-        # print('giver active\n')
+            while(1):
+                if customer_list != [] and int((time() - begin_time) / time_unit) == customer_list[0].arrive_time:
+                    waiting_list.append(customer_list[0])
+                    del(customer_list[0])
+                    Source.release()
+                else:
+                    break
         
 
 
-
-if __name__ == '__main__':
-    n = 1
+def Simulation(n:int, time_out:int, basic_time:float) -> None:
+    global max_delay
+    global time_unit
+    global Source
+    global customer_list
+    global waiting_list
+    global txt2file
+    
+    max_delay = time_out
+    time_unit = basic_time
     
     Source = Semaphore(0)
     customer_list= read_sequence()
@@ -90,7 +91,7 @@ if __name__ == '__main__':
     
     thread_list = []
     for i in range(n):
-        temp = server(MAX_DELAY, i+1)
+        temp = server(max_delay, i+1)
         thread_list.append(temp)
 
     Top = Thread(target=list_ctrl)
@@ -104,9 +105,16 @@ if __name__ == '__main__':
         thread_list[i].join()
     
     if waiting_list != []:
-        raise Exception('模拟超时，请增加 MAX_DELAY 并重试')
+        raise Exception('模拟超时，请增加 max_delay 并重试')
     
     with open('./codes/results.txt', 'w') as f:
         f.write(txt2file)
     
     print('{0:-^30}'.format('模拟结束'))
+
+
+if __name__ == '__main__':
+    server_num = 5
+    time_out = 30
+    simulation_unit_time = 0.1
+    Simulation(server_num, time_out, simulation_unit_time)
